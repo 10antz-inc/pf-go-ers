@@ -1,4 +1,4 @@
-module github.com/tys-muta/go-err
+module github.com/tys-muta/go-error
 
 go 1.18
 

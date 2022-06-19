@@ -1,4 +1,4 @@
-package err
+package error
 
 // 下記を考慮したエラーパッケージ.
 //

@@ -1,4 +1,4 @@
-package err
+package error
 
 type Option interface {
 	Apply(*Options)
