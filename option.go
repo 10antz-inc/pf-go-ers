@@ -1,4 +1,4 @@
-package error
+package ers
 
 type Option interface {
 	Apply(*Options)
