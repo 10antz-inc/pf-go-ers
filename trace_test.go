@@ -1,4 +1,4 @@
-package err
+package error
 
 import (
 	"fmt"
@@ -49,7 +49,7 @@ func TestDump1(t *testing.T) {
 	text := "test trace"
 	trace := NewTrace(text, TestStruct{Str: "string", Int: 1})
 	dump := trace.Dump()
-	want := fmt.Sprintf("%s: (err.TestStruct)", text)
+	want := fmt.Sprintf("%s: (error.TestStruct)", text)
 	if !strings.Contains(dump, want) {
 		t.Errorf("\n  got: %s\n  want: %s", dump, want)
 	}
