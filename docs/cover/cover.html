@@ -1,0 +1,446 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>go-err: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/tys-muta/go-err/error.go (16.9%)</option>
+				
+				<option value="file1">github.com/tys-muta/go-err/option.go (88.9%)</option>
+				
+				<option value="file2">github.com/tys-muta/go-err/trace.go (85.7%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package err
+
+// 下記を考慮したエラーパッケージ.
+//
+// - gRPC の仕様
+// ラップした場合でも, ラップされたエラーをたどって codes.Code を取得可能
+// - スタックトレース
+// %w でラップしただけではスタックトレースが行えないため, xerrors パッケージを使ってエラー発生時の原因補足を行い易く
+// - 表示用メッセージ
+// エラーメッセージはそのまま表示せず, 表示用として設定可能
+
+import (
+        "errors"
+        "fmt"
+
+        "golang.org/x/xerrors"
+        "google.golang.org/genproto/googleapis/rpc/errdetails"
+        "google.golang.org/grpc/codes"
+        "google.golang.org/grpc/status"
+)
+
+var (
+        // 制御用
+        ErrWrap = New(codes.OK, "", "")
+
+        // gRPC のエラーに基づいたエラー
+        ErrCanceled           = /* HTTP: 499 gRPC:  1 */ New(codes.Canceled, "Canceled", "処理がキャンセルされました。")
+        ErrUnknown            = /* HTTP: 500 gRPC:  2 */ New(codes.Unknown, "Unknown", "不明なエラーが発生しました。")
+        ErrInvalidArgument    = /* HTTP: 400 gRPC:  3 */ New(codes.InvalidArgument, "InvalidArgument", "入力値が不正です。")
+        ErrDeadlineExceeded   = /* HTTP: 504 gRPC:  4 */ New(codes.DeadlineExceeded, "DeadlineExceeded", "処理がタイムアウトしました。")
+        ErrNotFound           = /* HTTP: 404 gRPC:  5 */ New(codes.NotFound, "NotFound", "存在しないデータへの参照が発生しています。")
+        ErrAlreadyExists      = /* HTTP: 409 gRPC:  6 */ New(codes.AlreadyExists, "AlreadyExists", "データが既に存在します。")
+        ErrPermissionDenied   = /* HTTP: 403 gRPC:  7 */ New(codes.PermissionDenied, "PermissionDenied", "必要な権限がありません。")
+        ErrResourceExhausted  = /* HTTP: 429 gRPC:  8 */ New(codes.ResourceExhausted, "ResourceExhausted", "処理限界を超えています。")
+        ErrFailedPrecondition = /* HTTP: 400 gRPC:  9 */ New(codes.FailedPrecondition, "FailedPrecondition", "必要な条件を満たしていません。")
+        ErrAborted            = /* HTTP: 409 gRPC: 10 */ New(codes.Aborted, "Aborted", "操作が中断されました。")
+        ErrOutOfRange         = /* HTTP: 400 gRPC: 11 */ New(codes.OutOfRange, "OutOfRange", "入力値が有効範囲外です。")
+        ErrUnimplemented      = /* HTTP: 501 gRPC: 12 */ New(codes.Unimplemented, "Unimplemented", "サポートされていません。")
+        ErrInternal           = /* HTTP: 500 gRPC: 13 */ New(codes.Internal, "Internal", "システム内部でエラーが発生しました。")
+        ErrUnavailable        = /* HTTP: 503 gRPC: 14 */ New(codes.Unavailable, "Unavailable", "システムは現在利用できません。")
+        ErrDataLoss           = /* HTTP: 500 gRPC: 15 */ New(codes.DataLoss, "DataLoss", "修復不能なデータの欠損が生じました。")
+        ErrUnauthenticated    = /* HTTP: 401 gRPC: 16 */ New(codes.Unauthenticated, "Unauthenticated", "認証できませんでした。")
+)
+
+var (
+        // W 関数は, NewWrap 関数のエイリアス.
+        W = NewWrap
+)
+
+type Error struct {
+        error
+        code    codes.Code
+        reason  string
+        message string
+        trace   Trace
+        frame   xerrors.Frame
+        domain  string
+}
+
+func New(code codes.Code, reason string, message string) *Error <span class="cov8" title="1">{
+        return &amp;Error{
+                code:    code,
+                reason:  reason,
+                message: message,
+        }
+}</span>
+
+func (e *Error) New(v interface{}) error <span class="cov8" title="1">{
+        err := &amp;Error{
+                code:    e.code,
+                reason:  e.reason,
+                message: e.message,
+                frame:   xerrors.Caller(1),
+                trace:   newTrace(v),
+        }
+        return err
+}</span>
+
+func NewWrap(err error, options ...Option) error <span class="cov8" title="1">{
+        v := &amp;Error{
+                error:   err,
+                code:    ErrWrap.code,
+                reason:  ErrWrap.reason,
+                message: ErrWrap.message,
+                frame:   xerrors.Caller(1),
+        }
+        o := NewOptions(options...)
+        if o.Trace != nil </span><span class="cov8" title="1">{
+                v.trace = *o.Trace
+        }</span>
+        <span class="cov8" title="1">return v</span>
+}
+
+func Is(err error, target error) bool <span class="cov8" title="1">{
+        return errors.Is(err, target)
+}</span>
+
+func As(err error, target interface{}) bool <span class="cov0" title="0">{
+        return errors.As(err, target)
+}</span>
+
+func (e *Error) Unwrap() error <span class="cov8" title="1">{
+        return e.error
+}</span>
+
+func (e *Error) Is(target error) bool <span class="cov8" title="1">{
+        if err, ok := target.(*Error); ok &amp;&amp; e.code == err.code &amp;&amp; e.reason == err.reason </span><span class="cov8" title="1">{
+                return true
+        }</span>
+        <span class="cov8" title="1">return false</span>
+}
+
+func (e *Error) As(target interface{}) bool <span class="cov0" title="0">{
+        if err, ok := target.(**Error); ok </span><span class="cov0" title="0">{
+                (*err).error = e.error
+                (*err).code = e.code
+                (*err).reason = e.reason
+                (*err).message = e.message
+                (*err).trace = e.trace
+                (*err).frame = e.frame
+                return true
+        }</span>
+        <span class="cov0" title="0">return false</span>
+}
+
+func (e *Error) Format(state fmt.State, rune rune) <span class="cov0" title="0">{
+        xerrors.FormatError(e, state, rune)
+}</span>
+
+func (e *Error) FormatError(p xerrors.Printer) (next error) <span class="cov0" title="0">{
+        p.Print(e.trace.Dump())
+        e.frame.Format(p)
+        return e.error
+}</span>
+
+func (e *Error) Error() string <span class="cov0" title="0">{
+        if e.error != nil </span><span class="cov0" title="0">{
+                return e.error.Error()
+        }</span>
+        <span class="cov0" title="0">return fmt.Sprintf("%v", e)</span>
+}
+
+func (e *Error) WithDomain(domain string) *Error <span class="cov0" title="0">{
+        e.domain = domain
+        return e
+}</span>
+
+func (e *Error) GRPCStatus() *status.Status <span class="cov0" title="0">{
+        grpcStatus := status.New(e.Code(), e.Message())
+        grpcStatus, _ = grpcStatus.WithDetails(&amp;errdetails.ErrorInfo{
+                Reason: e.Reason(),
+                Domain: e.Domain(),
+                Metadata: map[string]string{
+                        "Trace": fmt.Sprintf("%v", e),
+                },
+        })
+        return grpcStatus
+}</span>
+
+func (e *Error) Code() codes.Code <span class="cov0" title="0">{
+        if e.error != nil </span><span class="cov0" title="0">{
+                if err, ok := e.error.(interface{ GRPCStatus() *status.Status }); ok </span><span class="cov0" title="0">{
+                        return err.GRPCStatus().Code()
+                }</span>
+                <span class="cov0" title="0">if err, ok := e.error.(interface{ Code() codes.Code }); ok </span><span class="cov0" title="0">{
+                        return err.Code()
+                }</span>
+        }
+        <span class="cov0" title="0">return e.code</span>
+}
+
+func (e *Error) Message() string <span class="cov0" title="0">{
+        if e.message != "" </span><span class="cov0" title="0">{
+                return e.message
+        }</span>
+        <span class="cov0" title="0">if e.error != nil </span><span class="cov0" title="0">{
+                if err, ok := e.error.(interface{ Message() string }); ok </span><span class="cov0" title="0">{
+                        return err.Message()
+                }</span>
+                <span class="cov0" title="0">if err, ok := e.error.(interface{ GRPCStatus() *status.Status }); ok </span><span class="cov0" title="0">{
+                        switch err.GRPCStatus().Code() </span>{
+                        case codes.Canceled:<span class="cov0" title="0">
+                                return ErrCanceled.message</span>
+                        case codes.Unknown:<span class="cov0" title="0">
+                                return ErrUnknown.message</span>
+                        case codes.InvalidArgument:<span class="cov0" title="0">
+                                return ErrInvalidArgument.message</span>
+                        case codes.DeadlineExceeded:<span class="cov0" title="0">
+                                return ErrDeadlineExceeded.message</span>
+                        case codes.NotFound:<span class="cov0" title="0">
+                                return ErrNotFound.message</span>
+                        case codes.AlreadyExists:<span class="cov0" title="0">
+                                return ErrAlreadyExists.message</span>
+                        case codes.PermissionDenied:<span class="cov0" title="0">
+                                return ErrPermissionDenied.reason</span>
+                        case codes.ResourceExhausted:<span class="cov0" title="0">
+                                return ErrResourceExhausted.message</span>
+                        case codes.FailedPrecondition:<span class="cov0" title="0">
+                                return ErrFailedPrecondition.message</span>
+                        case codes.Aborted:<span class="cov0" title="0">
+                                return ErrAborted.message</span>
+                        case codes.OutOfRange:<span class="cov0" title="0">
+                                return ErrOutOfRange.message</span>
+                        case codes.Unimplemented:<span class="cov0" title="0">
+                                return ErrUnimplemented.message</span>
+                        case codes.Internal:<span class="cov0" title="0">
+                                return ErrInternal.message</span>
+                        case codes.Unavailable:<span class="cov0" title="0">
+                                return ErrUnavailable.message</span>
+                        case codes.DataLoss:<span class="cov0" title="0">
+                                return ErrDataLoss.message</span>
+                        case codes.Unauthenticated:<span class="cov0" title="0">
+                                return ErrUnauthenticated.message</span>
+                        }
+                }
+        }
+        <span class="cov0" title="0">return ""</span>
+}
+
+func (e *Error) Reason() string <span class="cov0" title="0">{
+        if e.reason != "" </span><span class="cov0" title="0">{
+                return e.reason
+        }</span>
+        <span class="cov0" title="0">if e.error != nil </span><span class="cov0" title="0">{
+                if err, ok := e.error.(interface{ Reason() string }); ok </span><span class="cov0" title="0">{
+                        return err.Reason()
+                }</span>
+        }
+        <span class="cov0" title="0">return ""</span>
+}
+
+func (e *Error) Domain() string <span class="cov0" title="0">{
+        if e.domain != "" </span><span class="cov0" title="0">{
+                return e.domain
+        }</span>
+        <span class="cov0" title="0">if e.error != nil </span><span class="cov0" title="0">{
+                if err, ok := e.error.(interface{ Domain() string }); ok </span><span class="cov0" title="0">{
+                        return err.Domain()
+                }</span>
+        }
+        <span class="cov0" title="0">return ""</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package err
+
+type Option interface {
+        Apply(*Options)
+}
+
+func NewOptions(sources ...Option) *Options <span class="cov8" title="1">{
+        opts := &amp;Options{sources: sources}
+        for _, source := range sources </span><span class="cov8" title="1">{
+                if source == nil </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov8" title="1">source.Apply(opts)</span>
+        }
+        <span class="cov8" title="1">return opts</span>
+}
+
+type Options struct {
+        Trace *Trace
+
+        sources []Option
+}
+
+// Trace
+
+func WithTrace(v interface{}) trace <span class="cov8" title="1">{
+        t := newTrace(v)
+        return trace{&amp;t}
+}</span>
+
+type trace struct {
+        *Trace
+}
+
+func (o trace) Apply(opts *Options) <span class="cov8" title="1">{
+        opts.Trace = o.Trace
+}</span>
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package err
+
+import (
+        "fmt"
+        "strings"
+
+        "github.com/davecgh/go-spew/spew"
+)
+
+var (
+        // T 関数は, WithTrace 関数のエイリアス.
+        T = WithTrace
+)
+
+type Trace struct {
+        Text   string
+        Values []interface{}
+}
+
+func NewTrace(text string, values ...interface{}) *Trace <span class="cov8" title="1">{
+        return &amp;Trace{Text: text, Values: values}
+}</span>
+
+func newTrace(src interface{}) Trace <span class="cov8" title="1">{
+        switch v := src.(type) </span>{
+        case string:<span class="cov8" title="1">
+                return Trace{Text: v}</span>
+        case []byte:<span class="cov0" title="0">
+                return Trace{Text: string(v)}</span>
+        case error:<span class="cov0" title="0">
+                return Trace{Text: v.Error()}</span>
+        case *Trace:<span class="cov8" title="1">
+                if v != nil </span><span class="cov8" title="1">{
+                        return Trace{Text: v.Text, Values: v.Values}
+                }</span>
+        case Trace:<span class="cov8" title="1">
+                return v</span>
+        }
+        <span class="cov8" title="1">return Trace{Text: fmt.Sprintf("%s", src)}</span>
+}
+
+func (t *Trace) Dump() string <span class="cov8" title="1">{
+        elems := []string{t.Text}
+        if t.Values != nil </span><span class="cov8" title="1">{
+                dump := (&amp;spew.ConfigState{
+                        MaxDepth:                2,
+                        Indent:                  "  ",
+                        DisableMethods:          true,
+                        DisablePointerMethods:   true,
+                        DisableCapacities:       true,
+                        DisablePointerAddresses: true,
+                }).Sdump(t.Values...)
+                elems = append(elems, dump)
+        }</span>
+        <span class="cov8" title="1">return strings.Join(elems, ": ")</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
