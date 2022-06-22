@@ -1,8 +1,6 @@
 package ers
 
 import (
-	"fmt"
-	"strings"
 	"testing"
 )
 
@@ -32,25 +30,11 @@ func TestNewTrace2(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run("", func(t *testing.T) {
-			trace := newTrace(test.src)
+			trace := NewTrace(test.src)
 			if text != trace.Text {
 				t.Errorf("\n  got: %s\n  want: %s", trace.Text, text)
 				return
 			}
 		})
-	}
-}
-
-func TestDump1(t *testing.T) {
-	type TestStruct struct {
-		Str string
-		Int int
-	}
-	text := "test trace"
-	trace := NewTrace(text, TestStruct{Str: "string", Int: 1})
-	dump := trace.Dump()
-	want := fmt.Sprintf("%s: (ers.TestStruct)", text)
-	if !strings.Contains(dump, want) {
-		t.Errorf("\n  got: %s\n  want: %s", dump, want)
 	}
 }

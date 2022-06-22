@@ -3,6 +3,7 @@ package ers
 import (
 	"testing"
 
+	"github.com/tys-muta/go-ers/option"
 	"google.golang.org/grpc/codes"
 )
 
@@ -32,7 +33,7 @@ func TestNewError2(t *testing.T) {
 	message := "システム内部でエラーが発生しました。"
 	trace := "trace"
 
-	err, ok := ErrInternal.New(WithTrace(trace)).(*Error)
+	err, ok := ErrInternal.New(NewTrace(trace)).(*Error)
 	if !ok {
 		t.Errorf("Failed type assertion")
 		return
@@ -57,8 +58,8 @@ func TestNewWrap1(t *testing.T) {
 	reason := ""
 	message := ""
 
-	i := ErrInternal.New(WithTrace("Internal"))
-	w, ok := NewWrap(i, WithTrace("Wrap")).(*Error)
+	i := ErrInternal.New(NewTrace("Internal"))
+	w, ok := NewWrap(i, option.WithTrace("Wrap")).(*Error)
 	if !ok {
 		t.Errorf("Failed type assertion")
 		return
@@ -82,10 +83,10 @@ func TestNewWrap1(t *testing.T) {
 // https://cs.opensource.google/go/go/+/master:src/errors/wrap.go;l=45-58
 // これに従い, Wrap されているエラーでも正しく遡って比較されているかをテスト
 func TestIs1(t *testing.T) {
-	i1 := ErrInternal.New(WithTrace("Internal 1"))
-	i2 := ErrInternal.New(WithTrace("Internal 2"))
-	w1 := NewWrap(i2, WithTrace("Wrap"))
-	w2 := NewWrap(i2, WithTrace("Wrap"))
+	i1 := ErrInternal.New(NewTrace("Internal 1"))
+	i2 := ErrInternal.New(NewTrace("Internal 2"))
+	w1 := NewWrap(i2, option.WithTrace("Wrap"))
+	w2 := NewWrap(i2, option.WithTrace("Wrap"))
 
 	tests := []struct {
 		want bool
