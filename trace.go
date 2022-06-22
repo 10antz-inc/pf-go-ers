@@ -8,35 +8,31 @@ import (
 )
 
 var (
-	// T 関数は, WithTrace 関数のエイリアス.
-	T = WithTrace
+	// T 関数は, NewTrace 関数のエイリアス.
+	T = NewTrace
 )
 
 type Trace struct {
 	Text   string
-	Values []interface{}
+	Values []any
 }
 
-func NewTrace(text string, values ...interface{}) *Trace {
-	return &Trace{Text: text, Values: values}
-}
-
-func newTrace(src interface{}) Trace {
+func NewTrace(src any) *Trace {
 	switch v := src.(type) {
 	case string:
-		return Trace{Text: v}
+		return &Trace{Text: v}
 	case []byte:
-		return Trace{Text: string(v)}
+		return &Trace{Text: string(v)}
 	case error:
-		return Trace{Text: v.Error()}
+		return &Trace{Text: v.Error()}
 	case *Trace:
 		if v != nil {
-			return Trace{Text: v.Text, Values: v.Values}
+			return &Trace{Text: v.Text, Values: v.Values}
 		}
 	case Trace:
-		return v
+		return &v
 	}
-	return Trace{Text: fmt.Sprintf("%s", src)}
+	return &Trace{Text: fmt.Sprintf("%s", src)}
 }
 
 func (t *Trace) Dump() string {

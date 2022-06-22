@@ -13,6 +13,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/tys-muta/go-ers/option"
+	"github.com/tys-muta/go-opt"
 	"golang.org/x/xerrors"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
@@ -52,7 +54,7 @@ type Error struct {
 	code    codes.Code
 	reason  string
 	message string
-	trace   Trace
+	trace   *Trace
 	frame   xerrors.Frame
 	domain  string
 }
@@ -65,18 +67,18 @@ func New(code codes.Code, reason string, message string) *Error {
 	}
 }
 
-func (e *Error) New(v interface{}) error {
+func (e *Error) New(v any) error {
 	err := &Error{
 		code:    e.code,
 		reason:  e.reason,
 		message: e.message,
 		frame:   xerrors.Caller(1),
-		trace:   newTrace(v),
+		trace:   NewTrace(v),
 	}
 	return err
 }
 
-func NewWrap(err error, options ...Option) error {
+func NewWrap(err error, options ...opt.Option) error {
 	v := &Error{
 		error:   err,
 		code:    ErrWrap.code,
@@ -84,9 +86,12 @@ func NewWrap(err error, options ...Option) error {
 		message: ErrWrap.message,
 		frame:   xerrors.Caller(1),
 	}
-	o := NewOptions(options...)
+	o := option.WrapOptions{}
+	if err := opt.Reflect(&o, options...); err != nil {
+		return fmt.Errorf("failed to reflect: %w", err)
+	}
 	if o.Trace != nil {
-		v.trace = *o.Trace
+		v.trace = NewTrace(o.Trace)
 	}
 	return v
 }

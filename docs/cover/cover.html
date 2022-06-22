@@ -55,11 +55,9 @@
 			<div id="nav">
 				<select id="files">
 				
-				<option value="file0">github.com/tys-muta/go-ers/error.go (16.9%)</option>
+				<option value="file0">github.com/tys-muta/go-ers/error.go (17.7%)</option>
 				
-				<option value="file1">github.com/tys-muta/go-ers/option.go (88.9%)</option>
-				
-				<option value="file2">github.com/tys-muta/go-ers/trace.go (85.7%)</option>
+				<option value="file1">github.com/tys-muta/go-ers/trace.go (46.2%)</option>
 				
 				</select>
 			</div>
@@ -88,6 +86,8 @@ import (
         "errors"
         "fmt"
 
+        "github.com/tys-muta/go-ers/option"
+        "github.com/tys-muta/go-opt"
         "golang.org/x/xerrors"
         "google.golang.org/genproto/googleapis/rpc/errdetails"
         "google.golang.org/grpc/codes"
@@ -127,7 +127,7 @@ type Error struct {
         code    codes.Code
         reason  string
         message string
-        trace   Trace
+        trace   *Trace
         frame   xerrors.Frame
         domain  string
 }
@@ -140,18 +140,18 @@ func New(code codes.Code, reason string, message string) *Error <span class="cov
         }
 }</span>
 
-func (e *Error) New(v interface{}) error <span class="cov8" title="1">{
+func (e *Error) New(v any) error <span class="cov8" title="1">{
         err := &amp;Error{
                 code:    e.code,
                 reason:  e.reason,
                 message: e.message,
                 frame:   xerrors.Caller(1),
-                trace:   newTrace(v),
+                trace:   NewTrace(v),
         }
         return err
 }</span>
 
-func NewWrap(err error, options ...Option) error <span class="cov8" title="1">{
+func NewWrap(err error, options ...opt.Option) error <span class="cov8" title="1">{
         v := &amp;Error{
                 error:   err,
                 code:    ErrWrap.code,
@@ -159,9 +159,12 @@ func NewWrap(err error, options ...Option) error <span class="cov8" title="1">{
                 message: ErrWrap.message,
                 frame:   xerrors.Caller(1),
         }
-        o := NewOptions(options...)
-        if o.Trace != nil </span><span class="cov8" title="1">{
-                v.trace = *o.Trace
+        o := option.WrapOptions{}
+        if err := opt.Reflect(&amp;o, options...); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to reflect: %w", err)
+        }</span>
+        <span class="cov8" title="1">if o.Trace != nil </span><span class="cov8" title="1">{
+                v.trace = NewTrace(o.Trace)
         }</span>
         <span class="cov8" title="1">return v</span>
 }
@@ -319,45 +322,6 @@ func (e *Error) Domain() string <span class="cov0" title="0">{
 		
 		<pre class="file" id="file1" style="display: none">package ers
 
-type Option interface {
-        Apply(*Options)
-}
-
-func NewOptions(sources ...Option) *Options <span class="cov8" title="1">{
-        opts := &amp;Options{sources: sources}
-        for _, source := range sources </span><span class="cov8" title="1">{
-                if source == nil </span><span class="cov0" title="0">{
-                        continue</span>
-                }
-                <span class="cov8" title="1">source.Apply(opts)</span>
-        }
-        <span class="cov8" title="1">return opts</span>
-}
-
-type Options struct {
-        Trace *Trace
-
-        sources []Option
-}
-
-// Trace
-
-func WithTrace(v interface{}) trace <span class="cov8" title="1">{
-        t := newTrace(v)
-        return trace{&amp;t}
-}</span>
-
-type trace struct {
-        *Trace
-}
-
-func (o trace) Apply(opts *Options) <span class="cov8" title="1">{
-        opts.Trace = o.Trace
-}</span>
-</pre>
-		
-		<pre class="file" id="file2" style="display: none">package ers
-
 import (
         "fmt"
         "strings"
@@ -366,40 +330,36 @@ import (
 )
 
 var (
-        // T 関数は, WithTrace 関数のエイリアス.
-        T = WithTrace
+        // T 関数は, NewTrace 関数のエイリアス.
+        T = NewTrace
 )
 
 type Trace struct {
         Text   string
-        Values []interface{}
+        Values []any
 }
 
-func NewTrace(text string, values ...interface{}) *Trace <span class="cov8" title="1">{
-        return &amp;Trace{Text: text, Values: values}
-}</span>
-
-func newTrace(src interface{}) Trace <span class="cov8" title="1">{
+func NewTrace(src any) *Trace <span class="cov8" title="1">{
         switch v := src.(type) </span>{
         case string:<span class="cov8" title="1">
-                return Trace{Text: v}</span>
+                return &amp;Trace{Text: v}</span>
         case []byte:<span class="cov0" title="0">
-                return Trace{Text: string(v)}</span>
+                return &amp;Trace{Text: string(v)}</span>
         case error:<span class="cov0" title="0">
-                return Trace{Text: v.Error()}</span>
+                return &amp;Trace{Text: v.Error()}</span>
         case *Trace:<span class="cov8" title="1">
                 if v != nil </span><span class="cov8" title="1">{
-                        return Trace{Text: v.Text, Values: v.Values}
+                        return &amp;Trace{Text: v.Text, Values: v.Values}
                 }</span>
         case Trace:<span class="cov8" title="1">
-                return v</span>
+                return &amp;v</span>
         }
-        <span class="cov8" title="1">return Trace{Text: fmt.Sprintf("%s", src)}</span>
+        <span class="cov8" title="1">return &amp;Trace{Text: fmt.Sprintf("%s", src)}</span>
 }
 
-func (t *Trace) Dump() string <span class="cov8" title="1">{
+func (t *Trace) Dump() string <span class="cov0" title="0">{
         elems := []string{t.Text}
-        if t.Values != nil </span><span class="cov8" title="1">{
+        if t.Values != nil </span><span class="cov0" title="0">{
                 dump := (&amp;spew.ConfigState{
                         MaxDepth:                2,
                         Indent:                  "  ",
@@ -410,7 +370,7 @@ func (t *Trace) Dump() string <span class="cov8" title="1">{
                 }).Sdump(t.Values...)
                 elems = append(elems, dump)
         }</span>
-        <span class="cov8" title="1">return strings.Join(elems, ": ")</span>
+        <span class="cov0" title="0">return strings.Join(elems, ": ")</span>
 }
 </pre>
 		
