@@ -8,6 +8,13 @@ package ers
 // %w でラップしただけではスタックトレースが行えないため, xerrors パッケージを使ってエラー発生時の原因補足を行い易く
 // - 表示用メッセージ
 // エラーメッセージはそのまま表示せず, 表示用として設定可能
+//
+// MEMO: 22.06.27 現在
+// go-ers パッケージを扱うと、以下のエラーが出る
+// `module github.com/golang/protobuf is deprecated: Use the "google.golang.org/protobuf" module instead.`
+// これは google.golang.org/genproto が非推奨の github.com/golang/protobuf パッケージに依存しているため
+// google.golang.org/genproto パッケージ以外にも Google 製の各種パッケージが上記非推奨パッケージに依存している箇所が多い
+// Google 側での改善が行われたら対策する
 
 import (
 	"errors"
