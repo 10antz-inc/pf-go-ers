@@ -133,7 +133,9 @@ func (e *Error) Format(state fmt.State, rune rune) {
 }
 
 func (e *Error) FormatError(p xerrors.Printer) (next error) {
-	p.Print(e.trace.Dump())
+	if e.trace != nil {
+		p.Print(e.trace.Dump())
+	}
 	e.frame.Format(p)
 	return e.error
 }

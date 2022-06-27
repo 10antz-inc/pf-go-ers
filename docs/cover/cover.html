@@ -55,7 +55,7 @@
 			<div id="nav">
 				<select id="files">
 				
-				<option value="file0">github.com/tys-muta/go-ers/error.go (17.7%)</option>
+				<option value="file0">github.com/tys-muta/go-ers/error.go (17.5%)</option>
 				
 				<option value="file1">github.com/tys-muta/go-ers/trace.go (46.2%)</option>
 				
@@ -206,10 +206,12 @@ func (e *Error) Format(state fmt.State, rune rune) <span class="cov0" title="0">
 }</span>
 
 func (e *Error) FormatError(p xerrors.Printer) (next error) <span class="cov0" title="0">{
-        p.Print(e.trace.Dump())
-        e.frame.Format(p)
-        return e.error
-}</span>
+        if e.trace != nil </span><span class="cov0" title="0">{
+                p.Print(e.trace.Dump())
+        }</span>
+        <span class="cov0" title="0">e.frame.Format(p)
+        return e.error</span>
+}
 
 func (e *Error) Error() string <span class="cov0" title="0">{
         if e.error != nil </span><span class="cov0" title="0">{
