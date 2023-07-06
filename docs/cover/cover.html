@@ -55,9 +55,11 @@
 			<div id="nav">
 				<select id="files">
 				
-				<option value="file0">github.com/tys-muta/go-ers/error.go (17.5%)</option>
+				<option value="file0">github.com/tys-muta/go-ers/error.go (17.4%)</option>
 				
-				<option value="file1">github.com/tys-muta/go-ers/trace.go (46.2%)</option>
+				<option value="file1">github.com/tys-muta/go-ers/option.go (100.0%)</option>
+				
+				<option value="file2">github.com/tys-muta/go-ers/trace.go (75.0%)</option>
 				
 				</select>
 			</div>
@@ -81,13 +83,18 @@
 // %w でラップしただけではスタックトレースが行えないため, xerrors パッケージを使ってエラー発生時の原因補足を行い易く
 // - 表示用メッセージ
 // エラーメッセージはそのまま表示せず, 表示用として設定可能
+//
+// MEMO: 22.06.27 現在
+// go-ers パッケージを扱うと、以下のエラーが出る
+// `module github.com/golang/protobuf is deprecated: Use the "google.golang.org/protobuf" module instead.`
+// これは google.golang.org/genproto が非推奨の github.com/golang/protobuf パッケージに依存しているため
+// google.golang.org/genproto パッケージ以外にも Google 製の各種パッケージが上記非推奨パッケージに依存している箇所が多い
+// Google 側での改善が行われたら対策する
 
 import (
         "errors"
         "fmt"
 
-        "github.com/tys-muta/go-ers/option"
-        "github.com/tys-muta/go-opt"
         "golang.org/x/xerrors"
         "google.golang.org/genproto/googleapis/rpc/errdetails"
         "google.golang.org/grpc/codes"
@@ -151,7 +158,7 @@ func (e *Error) New(v any) error <span class="cov8" title="1">{
         return err
 }</span>
 
-func NewWrap(err error, options ...opt.Option) error <span class="cov8" title="1">{
+func NewWrap(err error, options ...WrapOption) error <span class="cov8" title="1">{
         v := &amp;Error{
                 error:   err,
                 code:    ErrWrap.code,
@@ -159,9 +166,10 @@ func NewWrap(err error, options ...opt.Option) error <span class="cov8" title="1
                 message: ErrWrap.message,
                 frame:   xerrors.Caller(1),
         }
-        o := option.WrapOptions{}
-        if err := opt.Reflect(&amp;o, options...); err != nil </span><span class="cov0" title="0">{
-                return fmt.Errorf("failed to reflect: %w", err)
+
+        o := wrapOptions{}
+        for _, option := range options </span><span class="cov8" title="1">{
+                option(&amp;o)
         }</span>
         <span class="cov8" title="1">if o.Trace != nil </span><span class="cov8" title="1">{
                 v.trace = NewTrace(o.Trace)
@@ -202,12 +210,24 @@ func (e *Error) As(target interface{}) bool <span class="cov0" title="0">{
 }
 
 func (e *Error) Format(state fmt.State, rune rune) <span class="cov0" title="0">{
-        xerrors.FormatError(e, state, rune)
-}</span>
+        switch rune </span>{
+        case 'v':<span class="cov0" title="0">
+                switch </span>{
+                case state.Flag('+'), state.Flag('#'):<span class="cov0" title="0"></span>
+                        // do not nothing
+                default:<span class="cov0" title="0">
+                        state.Write([]byte(e.Message()))
+                        return</span>
+                }
+        }
+        <span class="cov0" title="0">xerrors.FormatError(e, state, rune)</span>
+}
 
 func (e *Error) FormatError(p xerrors.Printer) (next error) <span class="cov0" title="0">{
         if e.trace != nil </span><span class="cov0" title="0">{
-                p.Print(e.trace.Dump())
+                p.Print(e.trace.Text)
+        }</span> else<span class="cov0" title="0"> if !Is(e, ErrWrap) </span><span class="cov0" title="0">{
+                p.Print(e.Message())
         }</span>
         <span class="cov0" title="0">e.frame.Format(p)
         return e.error</span>
@@ -230,9 +250,6 @@ func (e *Error) GRPCStatus() *status.Status <span class="cov0" title="0">{
         grpcStatus, _ = grpcStatus.WithDetails(&amp;errdetails.ErrorInfo{
                 Reason: e.Reason(),
                 Domain: e.Domain(),
-                Metadata: map[string]string{
-                        "Trace": fmt.Sprintf("%v", e),
-                },
         })
         return grpcStatus
 }</span>
@@ -324,11 +341,24 @@ func (e *Error) Domain() string <span class="cov0" title="0">{
 		
 		<pre class="file" id="file1" style="display: none">package ers
 
+type WrapOption func(o *wrapOptions)
+
+type wrapOptions struct {
+        Trace any
+}
+
+// WithTrace sets the trace option.
+func WithTrace(v any) WrapOption <span class="cov8" title="1">{
+        return func(o *wrapOptions) </span><span class="cov8" title="1">{
+                o.Trace = v
+        }</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package ers
+
 import (
         "fmt"
-        "strings"
-
-        "github.com/davecgh/go-spew/spew"
 )
 
 var (
@@ -357,22 +387,6 @@ func NewTrace(src any) *Trace <span class="cov8" title="1">{
                 return &amp;v</span>
         }
         <span class="cov8" title="1">return &amp;Trace{Text: fmt.Sprintf("%s", src)}</span>
-}
-
-func (t *Trace) Dump() string <span class="cov0" title="0">{
-        elems := []string{t.Text}
-        if t.Values != nil </span><span class="cov0" title="0">{
-                dump := (&amp;spew.ConfigState{
-                        MaxDepth:                2,
-                        Indent:                  "  ",
-                        DisableMethods:          true,
-                        DisablePointerMethods:   true,
-                        DisableCapacities:       true,
-                        DisablePointerAddresses: true,
-                }).Sdump(t.Values...)
-                elems = append(elems, dump)
-        }</span>
-        <span class="cov0" title="0">return strings.Join(elems, ": ")</span>
 }
 </pre>
 		

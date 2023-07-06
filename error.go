@@ -135,13 +135,23 @@ func (e *Error) As(target interface{}) bool {
 }
 
 func (e *Error) Format(state fmt.State, rune rune) {
+	switch rune {
+	case 'v':
+		switch {
+		case state.Flag('+'), state.Flag('#'):
+			// do not nothing
+		default:
+			state.Write([]byte(e.Message()))
+			return
+		}
+	}
 	xerrors.FormatError(e, state, rune)
 }
 
 func (e *Error) FormatError(p xerrors.Printer) (next error) {
 	if e.trace != nil {
 		p.Print(e.trace.Text)
-	} else {
+	} else if !Is(e, ErrWrap) {
 		p.Print(e.Message())
 	}
 	e.frame.Format(p)
