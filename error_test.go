@@ -3,7 +3,6 @@ package ers
 import (
 	"testing"
 
-	"github.com/tys-muta/go-ers/option"
 	"google.golang.org/grpc/codes"
 )
 
@@ -59,7 +58,7 @@ func TestNewWrap1(t *testing.T) {
 	message := ""
 
 	i := ErrInternal.New(NewTrace("Internal"))
-	w, ok := NewWrap(i, option.WithTrace("Wrap")).(*Error)
+	w, ok := NewWrap(i, WithTrace("Wrap")).(*Error)
 	if !ok {
 		t.Errorf("Failed type assertion")
 		return
@@ -85,8 +84,8 @@ func TestNewWrap1(t *testing.T) {
 func TestIs1(t *testing.T) {
 	i1 := ErrInternal.New(NewTrace("Internal 1"))
 	i2 := ErrInternal.New(NewTrace("Internal 2"))
-	w1 := NewWrap(i2, option.WithTrace("Wrap"))
-	w2 := NewWrap(i2, option.WithTrace("Wrap"))
+	w1 := NewWrap(i2, WithTrace("Wrap"))
+	w2 := NewWrap(i2, WithTrace("Wrap"))
 
 	tests := []struct {
 		want bool

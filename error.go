@@ -20,8 +20,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/tys-muta/go-ers/option"
-	"github.com/tys-muta/go-opt"
 	"golang.org/x/xerrors"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
@@ -85,7 +83,7 @@ func (e *Error) New(v any) error {
 	return err
 }
 
-func NewWrap(err error, options ...opt.Option) error {
+func NewWrap(err error, options ...WrapOption) error {
 	v := &Error{
 		error:   err,
 		code:    ErrWrap.code,
@@ -93,9 +91,10 @@ func NewWrap(err error, options ...opt.Option) error {
 		message: ErrWrap.message,
 		frame:   xerrors.Caller(1),
 	}
-	o := option.WrapOptions{}
-	if err := opt.Reflect(&o, options...); err != nil {
-		return fmt.Errorf("failed to reflect: %w", err)
+
+	o := wrapOptions{}
+	for _, option := range options {
+		option(&o)
 	}
 	if o.Trace != nil {
 		v.trace = NewTrace(o.Trace)
@@ -141,7 +140,9 @@ func (e *Error) Format(state fmt.State, rune rune) {
 
 func (e *Error) FormatError(p xerrors.Printer) (next error) {
 	if e.trace != nil {
-		p.Print(e.trace.Dump())
+		p.Print(e.trace.Text)
+	} else {
+		p.Print(e.Message())
 	}
 	e.frame.Format(p)
 	return e.error
@@ -164,9 +165,6 @@ func (e *Error) GRPCStatus() *status.Status {
 	grpcStatus, _ = grpcStatus.WithDetails(&errdetails.ErrorInfo{
 		Reason: e.Reason(),
 		Domain: e.Domain(),
-		Metadata: map[string]string{
-			"Trace": fmt.Sprintf("%v", e),
-		},
 	})
 	return grpcStatus
 }
