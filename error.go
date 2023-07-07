@@ -29,7 +29,7 @@ import (
 
 var (
 	// 制御用
-	errWrap = New(codes.Unknown, "wrap", "")
+	errWrap = New(codes.Unknown, "InternalWrap", "")
 
 	// gRPC のエラーに基づいたエラー
 	ErrCanceled           = /* HTTP: 499 gRPC:  1 */ New(codes.Canceled, "Canceled", "処理がキャンセルされました。")
@@ -198,7 +198,10 @@ func (e *Error) GRPCStatus() *status.Status {
 }
 
 func (e *Error) Code() codes.Code {
-	if e.error != nil {
+	if !Is(e, errWrap) {
+		return e.code
+	}
+	if !e.unwrapedErrorIsNil() {
 		if err, ok := e.error.(interface{ GRPCStatus() *status.Status }); ok {
 			return err.GRPCStatus().Code()
 		}
@@ -210,7 +213,7 @@ func (e *Error) Code() codes.Code {
 }
 
 func (e *Error) Message() string {
-	if e.message != "" {
+	if !Is(e, errWrap) {
 		return e.message
 	}
 	if !e.unwrapedErrorIsNil() {
@@ -258,7 +261,7 @@ func (e *Error) Message() string {
 }
 
 func (e *Error) Reason() string {
-	if e.reason != "" {
+	if !Is(e, errWrap) {
 		return e.reason
 	}
 	if !e.unwrapedErrorIsNil() {
@@ -270,7 +273,7 @@ func (e *Error) Reason() string {
 }
 
 func (e *Error) Domain() string {
-	if e.domain != "" {
+	if !Is(e, errWrap) {
 		return e.domain
 	}
 	if !e.unwrapedErrorIsNil() {
