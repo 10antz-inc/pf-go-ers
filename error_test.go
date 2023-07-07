@@ -53,8 +53,8 @@ func TestNewError2(t *testing.T) {
 }
 
 func TestNewWrap1(t *testing.T) {
-	code := codes.OK
-	reason := ""
+	code := codes.Unknown
+	reason := "wrap"
 	message := ""
 
 	i := ErrInternal.New(NewTrace("Internal"))
