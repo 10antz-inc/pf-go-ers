@@ -177,7 +177,7 @@ func (e *Error) FormatError(p xerrors.Printer) (next error) {
 }
 
 func (e *Error) Error() string {
-	if !reflect.ValueOf(e.error).IsNil() {
+	if !e.unwrapedErrorIsNil() {
 		return e.error.Error()
 	}
 	return e.Message()
@@ -213,7 +213,7 @@ func (e *Error) Message() string {
 	if e.message != "" {
 		return e.message
 	}
-	if !reflect.ValueOf(e.error).IsNil() {
+	if !e.unwrapedErrorIsNil() {
 		if err, ok := e.error.(interface{ Message() string }); ok {
 			return err.Message()
 		}
@@ -261,7 +261,7 @@ func (e *Error) Reason() string {
 	if e.reason != "" {
 		return e.reason
 	}
-	if !reflect.ValueOf(e.error).IsNil() {
+	if !e.unwrapedErrorIsNil() {
 		if err, ok := e.error.(interface{ Reason() string }); ok {
 			return err.Reason()
 		}
@@ -273,10 +273,17 @@ func (e *Error) Domain() string {
 	if e.domain != "" {
 		return e.domain
 	}
-	if !reflect.ValueOf(e.error).IsNil() {
+	if !e.unwrapedErrorIsNil() {
 		if err, ok := e.error.(interface{ Domain() string }); ok {
 			return err.Domain()
 		}
 	}
 	return ""
+}
+
+func (e *Error) unwrapedErrorIsNil() bool {
+	if e.error == nil {
+		return true
+	}
+	return reflect.ValueOf(e.error).IsNil()
 }
