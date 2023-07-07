@@ -55,7 +55,7 @@
 			<div id="nav">
 				<select id="files">
 				
-				<option value="file0">github.com/tys-muta/go-ers/error.go (17.9%)</option>
+				<option value="file0">github.com/tys-muta/go-ers/error.go (18.2%)</option>
 				
 				<option value="file1">github.com/tys-muta/go-ers/option.go (100.0%)</option>
 				
@@ -94,6 +94,7 @@
 import (
         "errors"
         "fmt"
+        "reflect"
 
         "golang.org/x/xerrors"
         "google.golang.org/genproto/googleapis/rpc/errdetails"
@@ -103,7 +104,7 @@ import (
 
 var (
         // 制御用
-        ErrWrap = New(codes.OK, "", "")
+        errWrap = New(codes.Unknown, "wrap", "")
 
         // gRPC のエラーに基づいたエラー
         ErrCanceled           = /* HTTP: 499 gRPC:  1 */ New(codes.Canceled, "Canceled", "処理がキャンセルされました。")
@@ -144,9 +145,12 @@ func New(code codes.Code, reason string, message string) *Error <span class="cov
                 code:    code,
                 reason:  reason,
                 message: message,
+                frame:   xerrors.Caller(1),
+                trace:   NewTrace(""),
         }
 }</span>
 
+// deperecated
 func (e *Error) New(v any) error <span class="cov8" title="1">{
         err := &amp;Error{
                 code:    e.code,
@@ -158,12 +162,28 @@ func (e *Error) New(v any) error <span class="cov8" title="1">{
         return err
 }</span>
 
+// recomended
+func (e *Error) WithTrace(v any) error <span class="cov0" title="0">{
+        err := &amp;Error{
+                code:    e.code,
+                reason:  e.reason,
+                message: e.message,
+                frame:   xerrors.Caller(1),
+                trace:   NewTrace(v),
+        }
+        return err
+}</span>
+
 func NewWrap(err error, options ...WrapOption) error <span class="cov8" title="1">{
-        v := &amp;Error{
+        if err == nil </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        <span class="cov8" title="1">v := &amp;Error{
                 error:   err,
-                code:    ErrWrap.code,
-                reason:  ErrWrap.reason,
-                message: ErrWrap.message,
+                code:    errWrap.code,
+                reason:  errWrap.reason,
+                message: errWrap.message,
                 frame:   xerrors.Caller(1),
         }
 
@@ -232,10 +252,10 @@ func (e *Error) FormatError(p xerrors.Printer) (next error) <span class="cov0" t
 }
 
 func (e *Error) Error() string <span class="cov0" title="0">{
-        if e.error != nil </span><span class="cov0" title="0">{
+        if !reflect.ValueOf(e.error).IsNil() </span><span class="cov0" title="0">{
                 return e.error.Error()
         }</span>
-        <span class="cov0" title="0">return fmt.Sprintf("%v", e)</span>
+        <span class="cov0" title="0">return e.Message()</span>
 }
 
 func (e *Error) WithDomain(domain string) *Error <span class="cov0" title="0">{
@@ -268,7 +288,7 @@ func (e *Error) Message() string <span class="cov0" title="0">{
         if e.message != "" </span><span class="cov0" title="0">{
                 return e.message
         }</span>
-        <span class="cov0" title="0">if e.error != nil </span><span class="cov0" title="0">{
+        <span class="cov0" title="0">if !reflect.ValueOf(e.error).IsNil() </span><span class="cov0" title="0">{
                 if err, ok := e.error.(interface{ Message() string }); ok </span><span class="cov0" title="0">{
                         return err.Message()
                 }</span>
@@ -316,7 +336,7 @@ func (e *Error) Reason() string <span class="cov0" title="0">{
         if e.reason != "" </span><span class="cov0" title="0">{
                 return e.reason
         }</span>
-        <span class="cov0" title="0">if e.error != nil </span><span class="cov0" title="0">{
+        <span class="cov0" title="0">if !reflect.ValueOf(e.error).IsNil() </span><span class="cov0" title="0">{
                 if err, ok := e.error.(interface{ Reason() string }); ok </span><span class="cov0" title="0">{
                         return err.Reason()
                 }</span>
@@ -328,7 +348,7 @@ func (e *Error) Domain() string <span class="cov0" title="0">{
         if e.domain != "" </span><span class="cov0" title="0">{
                 return e.domain
         }</span>
-        <span class="cov0" title="0">if e.error != nil </span><span class="cov0" title="0">{
+        <span class="cov0" title="0">if !reflect.ValueOf(e.error).IsNil() </span><span class="cov0" title="0">{
                 if err, ok := e.error.(interface{ Domain() string }); ok </span><span class="cov0" title="0">{
                         return err.Domain()
                 }</span>
