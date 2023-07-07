@@ -19,6 +19,7 @@ package ers
 import (
 	"errors"
 	"fmt"
+	"reflect"
 
 	"golang.org/x/xerrors"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
@@ -28,7 +29,7 @@ import (
 
 var (
 	// 制御用
-	ErrWrap = New(codes.OK, "", "")
+	errWrap = New(codes.Unknown, "wrap", "")
 
 	// gRPC のエラーに基づいたエラー
 	ErrCanceled           = /* HTTP: 499 gRPC:  1 */ New(codes.Canceled, "Canceled", "処理がキャンセルされました。")
@@ -69,9 +70,12 @@ func New(code codes.Code, reason string, message string) *Error {
 		code:    code,
 		reason:  reason,
 		message: message,
+		frame:   xerrors.Caller(1),
+		trace:   NewTrace(""),
 	}
 }
 
+// deperecated
 func (e *Error) New(v any) error {
 	err := &Error{
 		code:    e.code,
@@ -83,12 +87,28 @@ func (e *Error) New(v any) error {
 	return err
 }
 
+// recomended
+func (e *Error) WithTrace(v any) error {
+	err := &Error{
+		code:    e.code,
+		reason:  e.reason,
+		message: e.message,
+		frame:   xerrors.Caller(1),
+		trace:   NewTrace(v),
+	}
+	return err
+}
+
 func NewWrap(err error, options ...WrapOption) error {
+	if err == nil {
+		return nil
+	}
+
 	v := &Error{
 		error:   err,
-		code:    ErrWrap.code,
-		reason:  ErrWrap.reason,
-		message: ErrWrap.message,
+		code:    errWrap.code,
+		reason:  errWrap.reason,
+		message: errWrap.message,
 		frame:   xerrors.Caller(1),
 	}
 
@@ -157,10 +177,10 @@ func (e *Error) FormatError(p xerrors.Printer) (next error) {
 }
 
 func (e *Error) Error() string {
-	if e.error != nil {
+	if !reflect.ValueOf(e.error).IsNil() {
 		return e.error.Error()
 	}
-	return fmt.Sprintf("%v", e)
+	return e.Message()
 }
 
 func (e *Error) WithDomain(domain string) *Error {
@@ -193,7 +213,7 @@ func (e *Error) Message() string {
 	if e.message != "" {
 		return e.message
 	}
-	if e.error != nil {
+	if !reflect.ValueOf(e.error).IsNil() {
 		if err, ok := e.error.(interface{ Message() string }); ok {
 			return err.Message()
 		}
@@ -241,7 +261,7 @@ func (e *Error) Reason() string {
 	if e.reason != "" {
 		return e.reason
 	}
-	if e.error != nil {
+	if !reflect.ValueOf(e.error).IsNil() {
 		if err, ok := e.error.(interface{ Reason() string }); ok {
 			return err.Reason()
 		}
@@ -253,7 +273,7 @@ func (e *Error) Domain() string {
 	if e.domain != "" {
 		return e.domain
 	}
-	if e.error != nil {
+	if !reflect.ValueOf(e.error).IsNil() {
 		if err, ok := e.error.(interface{ Domain() string }); ok {
 			return err.Domain()
 		}
