@@ -151,8 +151,6 @@ func (e *Error) Format(state fmt.State, rune rune) {
 func (e *Error) FormatError(p xerrors.Printer) (next error) {
 	if e.trace != nil {
 		p.Print(e.trace.Text)
-	} else if !Is(e, ErrWrap) {
-		p.Print(e.Message())
 	}
 	e.frame.Format(p)
 	return e.error
