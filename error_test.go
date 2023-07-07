@@ -54,7 +54,7 @@ func TestNewError2(t *testing.T) {
 
 func TestNewWrap1(t *testing.T) {
 	code := codes.Unknown
-	reason := "wrap"
+	reason := "InternalWrap"
 	message := ""
 
 	i := ErrInternal.New(NewTrace("Internal"))
