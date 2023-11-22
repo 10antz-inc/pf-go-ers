@@ -288,5 +288,9 @@ func (e *Error) unwrapedErrorIsNil() bool {
 	if e.error == nil {
 		return true
 	}
-	return reflect.ValueOf(e.error).IsNil()
+	value := reflect.ValueOf(e.error)
+	if value.Kind() == reflect.Ptr {
+		return value.IsNil()
+	}
+	return false
 }
