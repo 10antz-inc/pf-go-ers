@@ -177,10 +177,24 @@ func (e *Error) FormatError(p xerrors.Printer) (next error) {
 }
 
 func (e *Error) Error() string {
-	if !e.unwrapedErrorIsNil() {
+	// 内包するエラーがない場合は自身のメッセージを返す
+	if !Is(e, errWrap) {
+		return e.Message()
+	}
+
+	v, ok := e.error.(*Error)
+	if !ok {
+		// 内包するエラーが独自エラー型ではない場合は内包するエラーのエラー文字列を返す
 		return e.error.Error()
 	}
-	return e.Message()
+
+	// 内包するエラーが nil の場合は自身のメッセージを返す
+	if e.unwrapedErrorIsNil() {
+		return e.Message()
+	}
+
+	// 内包するエラーが独自エラー型の場合は内包するエラーのエラー文字列を返す
+	return v.Error()
 }
 
 func (e *Error) WithDomain(domain string) *Error {
@@ -198,96 +212,92 @@ func (e *Error) GRPCStatus() *status.Status {
 }
 
 func (e *Error) Code() codes.Code {
-	if !Is(e, errWrap) {
+	if e.isSource() {
 		return e.code
 	}
-	if !e.unwrapedErrorIsNil() {
-		if err, ok := e.error.(interface{ GRPCStatus() *status.Status }); ok {
-			return err.GRPCStatus().Code()
-		}
-		if err, ok := e.error.(interface{ Code() codes.Code }); ok {
-			return err.Code()
-		}
+
+	if err, ok := e.error.(interface{ GRPCStatus() *status.Status }); ok {
+		return err.GRPCStatus().Code()
 	}
-	return e.code
+	if err, ok := e.error.(interface{ Code() codes.Code }); ok {
+		return err.Code()
+	}
+	return codes.Unknown
 }
 
 func (e *Error) Message() string {
-	if !Is(e, errWrap) {
+	if e.isSource() {
 		return e.message
 	}
-	if !e.unwrapedErrorIsNil() {
-		if err, ok := e.error.(interface{ Message() string }); ok {
-			return err.Message()
-		}
-		if err, ok := e.error.(interface{ GRPCStatus() *status.Status }); ok {
-			switch err.GRPCStatus().Code() {
-			case codes.Canceled:
-				return ErrCanceled.message
-			case codes.Unknown:
-				return ErrUnknown.message
-			case codes.InvalidArgument:
-				return ErrInvalidArgument.message
-			case codes.DeadlineExceeded:
-				return ErrDeadlineExceeded.message
-			case codes.NotFound:
-				return ErrNotFound.message
-			case codes.AlreadyExists:
-				return ErrAlreadyExists.message
-			case codes.PermissionDenied:
-				return ErrPermissionDenied.reason
-			case codes.ResourceExhausted:
-				return ErrResourceExhausted.message
-			case codes.FailedPrecondition:
-				return ErrFailedPrecondition.message
-			case codes.Aborted:
-				return ErrAborted.message
-			case codes.OutOfRange:
-				return ErrOutOfRange.message
-			case codes.Unimplemented:
-				return ErrUnimplemented.message
-			case codes.Internal:
-				return ErrInternal.message
-			case codes.Unavailable:
-				return ErrUnavailable.message
-			case codes.DataLoss:
-				return ErrDataLoss.message
-			case codes.Unauthenticated:
-				return ErrUnauthenticated.message
-			}
+
+	if err, ok := e.error.(interface{ Message() string }); ok {
+		return err.Message()
+	}
+	if err, ok := e.error.(interface{ GRPCStatus() *status.Status }); ok {
+		switch err.GRPCStatus().Code() {
+		case codes.Canceled:
+			return ErrCanceled.message
+		case codes.Unknown:
+			return ErrUnknown.message
+		case codes.InvalidArgument:
+			return ErrInvalidArgument.message
+		case codes.DeadlineExceeded:
+			return ErrDeadlineExceeded.message
+		case codes.NotFound:
+			return ErrNotFound.message
+		case codes.AlreadyExists:
+			return ErrAlreadyExists.message
+		case codes.PermissionDenied:
+			return ErrPermissionDenied.reason
+		case codes.ResourceExhausted:
+			return ErrResourceExhausted.message
+		case codes.FailedPrecondition:
+			return ErrFailedPrecondition.message
+		case codes.Aborted:
+			return ErrAborted.message
+		case codes.OutOfRange:
+			return ErrOutOfRange.message
+		case codes.Unimplemented:
+			return ErrUnimplemented.message
+		case codes.Internal:
+			return ErrInternal.message
+		case codes.Unavailable:
+			return ErrUnavailable.message
+		case codes.DataLoss:
+			return ErrDataLoss.message
+		case codes.Unauthenticated:
+			return ErrUnauthenticated.message
 		}
 	}
 	return ""
 }
 
 func (e *Error) Reason() string {
-	if !Is(e, errWrap) {
+	if e.isSource() {
 		return e.reason
 	}
-	if !e.unwrapedErrorIsNil() {
-		if err, ok := e.error.(interface{ Reason() string }); ok {
-			return err.Reason()
-		}
+	err, ok := e.error.(interface{ Reason() string })
+	if ok {
+		return err.Reason()
 	}
 	return ""
 }
 
 func (e *Error) Domain() string {
-	if !Is(e, errWrap) {
+	if e.isSource() {
 		return e.domain
 	}
-	if !e.unwrapedErrorIsNil() {
-		if err, ok := e.error.(interface{ Domain() string }); ok {
-			return err.Domain()
-		}
+	if err, ok := e.error.(interface{ Domain() string }); ok {
+		return err.Domain()
 	}
 	return ""
 }
 
+func (e *Error) isSource() bool {
+	return !Is(e, errWrap) || e.unwrapedErrorIsNil()
+}
+
 func (e *Error) unwrapedErrorIsNil() bool {
-	if e.error == nil {
-		return true
-	}
 	value := reflect.ValueOf(e.error)
 	if value.Kind() == reflect.Ptr {
 		return value.IsNil()
