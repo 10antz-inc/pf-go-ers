@@ -78,6 +78,49 @@ func TestNewWrap1(t *testing.T) {
 	}
 }
 
+type testErrorPtr struct {
+}
+
+func (e *testErrorPtr) Error() string {
+	return "ptr"
+}
+
+type testErrorVal struct {
+}
+
+func (e testErrorVal) Error() string {
+	return "val"
+}
+
+func TestNewWrap2(t *testing.T) {
+	errPtr1 := &testErrorPtr{}
+	var errPtr2 *testErrorPtr
+	errVal1 := testErrorVal{}
+	errInt := ErrInternal.WithTrace("Internal")
+
+	tests := []struct {
+		err    error
+		expect string
+	}{
+		{err: errPtr1, expect: "ptr"},
+		{err: W(errPtr1), expect: "ptr"},
+		{err: errPtr2, expect: "ptr"},
+		{err: W(errPtr2), expect: "ptr"},
+		{err: errVal1, expect: "val"},
+		{err: W(errVal1), expect: "val"},
+		{err: errInt, expect: "システム内部でエラーが発生しました。"},
+		{err: W(errInt), expect: "システム内部でエラーが発生しました。"},
+	}
+
+	for _, test := range tests {
+		got := test.err.Error()
+		if got != test.expect {
+			t.Errorf("got: %s, want: %s", got, test.expect)
+			return
+		}
+	}
+}
+
 // golang の標準 errors パッケージの Is 関数は, 第一引数で渡されるエラーはラップ対象を遡って比較する
 // https://cs.opensource.google/go/go/+/master:src/errors/wrap.go;l=45-58
 // これに従い, Wrap されているエラーでも正しく遡って比較されているかをテスト
