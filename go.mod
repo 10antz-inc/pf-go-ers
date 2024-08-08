@@ -1,4 +1,4 @@
-module github.com/tys-muta/go-ers
+module github.com/10antz-inc/pf-go-ers
 
 go 1.18
 
